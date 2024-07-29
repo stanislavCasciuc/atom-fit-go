@@ -1,9 +1,9 @@
 package api
 
 import (
-	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/utils"
 	"log"
 	"net/http"
 )
@@ -24,19 +24,16 @@ func (s *Server) Run() error {
 	router := mux.NewRouter()
 	subRouter := router.PathPrefix("/api").Subrouter()
 
-	subRouter.HandleFunc("/hello", writeHello).Methods("GET")
+	subRouter.HandleFunc("/", writeHello).Methods("GET")
 
 	log.Println("Listening on", s.addr)
 	return http.ListenAndServe(s.addr, router)
 }
 
 func writeHello(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"hello": "world"})
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) error {
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(v)
-
+	err := utils.WriteJSON(w, http.StatusOK, map[string]string{"hello": "world"})
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
 }
