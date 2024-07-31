@@ -4,6 +4,7 @@ import (
 	"github.com/stanislavCasciuc/atom-fit-go/internal/api"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/config"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/database"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/prettyslog"
 	"log/slog"
 	"os"
 )
@@ -32,7 +33,7 @@ func main() {
 
 	log.Info("database successfully connected")
 
-	server := api.NewServer(":8080", db)
+	server := api.NewServer(":8080", db, log)
 	if err := server.Run(); err != nil {
 		log.Error("cannot to run api server ", err)
 	}
@@ -44,9 +45,7 @@ func setupLogger(env string) *slog.Logger {
 
 	switch env {
 	case envLocal:
-		log = slog.New(
-			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-		)
+		log = setupPrettySlog()
 	case envDev:
 		log = slog.New(
 			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
@@ -58,4 +57,16 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := prettyslog.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }

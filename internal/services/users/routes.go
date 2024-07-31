@@ -2,66 +2,76 @@ package users
 
 import (
 	"errors"
-	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/stanislavCasciuc/atom-fit-go/internal/types"
-	"github.com/stanislavCasciuc/atom-fit-go/internal/utils"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/api/response"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/sl"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/services/users/models"
+	"io"
 	"log/slog"
 	"net/http"
 )
 
 type Handler struct {
-	store types.UserStore
+	store UserStore
 	log   *slog.Logger
 }
 
-func NewHandler(store types.UserStore) *Handler {
-	return &Handler{store: store}
-}
-
-func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/login", h.handleLogin).Methods("POST")
-	router.HandleFunc("/register", h.handleRegister).Methods("POST")
+func NewHandler(store UserStore, log *slog.Logger) *Handler {
+	return &Handler{store: store, log: log}
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	// handle login
 }
 
-func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	const op = "users.routers.handleRegister"
 
-	log := h.log.With(slog.String("op", op))
+	requestId := middleware.GetReqID(r.Context())
 
-	var payload types.RegisterUserPayload
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", requestId),
+	)
 
-	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusUnprocessableEntity, errors.New("invalid payload"))
-		h.log.Warn("unprocessable entity")
+	var payload models.RegisterUserPayload
+
+	err := render.DecodeJSON(r.Body, &payload)
+	if errors.Is(err, io.EOF) {
+		render.JSON(w, r, response.Error("empty payload"))
+		log.Error("request is empty")
 		return
 	}
-
-	if err := utils.Validate.Struct(payload); err != nil {
-		h.log.Warn("invalid payload")
-		utils.WriteError(w, http.StatusUnprocessableEntity, fmt.Errorf("invalid payload: %w", err))
-		return
-	}
-
-	u, err := h.store.GetUserByEmail(payload.Email)
-	if err != nil || u == nil {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("user already exist"))
-		h.log.Warn("user already exist ")
-		return
-	}
-
-	log = log.With(slog.String("email", u.Email))
-
-	id, err := h.store.CreateUser(payload)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errors.New("internal error"))
-		h.log.Error("internal erorr", err)
+		log.Error("failed to decode payload", sl.Err(err))
+		render.JSON(w, r, response.Error("failed to decode payload"))
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, map[string]int{"id": id})
+	log.Info("request body successfully decoded", slog.Any("request_id", requestId))
+
+	if err := validator.New().Struct(payload); err != nil {
+		validateErr := err.(validator.ValidationErrors)
+		log.Error("invalid request", sl.Err(err))
+		render.JSON(w, r, response.ValidationError(validateErr))
+		return
+	}
+
+	log = log.With(slog.String("email", payload.Email))
+
+	_, err = h.store.CreateUser(payload)
+	if err != nil {
+		if errors.Is(UserAlreadyExist, err) {
+			log.Error("user already exist")
+			render.JSON(w, r, response.Error("user already exist"))
+			return
+		}
+		log.Error("fail to save user", sl.Err(err))
+		render.JSON(w, r, response.Error("fail to save user"))
+		return
+	}
+
+	render.JSON(w, r, response.OK())
 }

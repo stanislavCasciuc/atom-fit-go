@@ -27,6 +27,13 @@ type Config struct {
 	DbCfg  DbConfig
 	JwtCfg JWTConfig
 	Env    string
+	HttpServer
+}
+
+type HttpServer struct {
+	Addr       string
+	IdleTimout time.Duration
+	Timeout    time.Duration
 }
 
 func initConfig() Config {
@@ -70,10 +77,30 @@ func initConfig() Config {
 		}(),
 	}
 
+	httpServer := HttpServer{
+		Addr: os.Getenv("HTTP_ADDR"),
+		Timeout: func() time.Duration {
+			timeout, err := time.ParseDuration(os.Getenv("HTTP_TIMEOUT"))
+			if err != nil {
+				panic("cannot convert HTTP_TIMEOUT to time duration")
+			}
+			return timeout
+		}(),
+
+		IdleTimout: func() time.Duration {
+			idleTimeout, err := time.ParseDuration(os.Getenv("HTTP_IDLE_TIMEOUT"))
+			if err != nil {
+				panic("cannot convert HTTP_IDLE_TIMEOUT to time duration")
+			}
+			return idleTimeout
+		}(),
+	}
+
 	env := os.Getenv("ENV")
 	return Config{
-		DbCfg:  dbCfg,
-		JwtCfg: jwtCfg,
-		Env:    env,
+		DbCfg:      dbCfg,
+		JwtCfg:     jwtCfg,
+		Env:        env,
+		HttpServer: httpServer,
 	}
 }
