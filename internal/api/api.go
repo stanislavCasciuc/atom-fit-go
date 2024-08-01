@@ -44,6 +44,7 @@ func (s *Server) Run() error {
 	userHandlers := users.NewHandler(userStore, s.log)
 
 	router.Post("/api/register", userHandlers.HandleRegister)
+	router.Post("/api/login", userHandlers.HandleLogin)
 
 	s.log.Info("Listening on", slog.String("addr", s.cfg.Addr))
 	done := make(chan os.Signal, 1)

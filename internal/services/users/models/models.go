@@ -6,7 +6,7 @@ type User struct {
 	ID          int       `db:"id"`
 	Email       string    `db:"email"`
 	Username    string    `db:"username"`
-	Password    string    `db:"password"`
+	Password    []byte    `db:"password"`
 	CreatedAt   time.Time `db:"created_at"`
 	IsActive    bool      `db:"is_active"`
 	IsSuperuser bool      `db:"is_superuser"`
@@ -28,4 +28,9 @@ type RegisterUserPayload struct {
 	Weight     int    `json:"weight" validate:"required"`
 	Goal       string `json:"goal" validate:"required,oneof=lose maintain gain"`
 	WeightGoal int    `json:"weightGoal" validate:"required"`
+}
+
+type LoginUserPayload struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=3,max=30"`
 }

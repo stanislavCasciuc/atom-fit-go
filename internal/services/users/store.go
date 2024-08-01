@@ -11,10 +11,13 @@ import (
 type UserStore interface {
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id int) (*models.User, error)
-	CreateUser(useData models.RegisterUserPayload) (int, error)
+	CreateUser(useData models.RegisterUserPayload, passwordHash []byte) (int, error)
 }
 
-var UserAlreadyExist = errors.New("user already exists")
+var (
+	UserAlreadyExist = errors.New("user already exists")
+	UserNotFound     = errors.New("user not found")
+)
 
 type Store struct {
 	db *sqlx.DB
@@ -57,14 +60,18 @@ func (s *Store) GetUserByID(id int) (*models.User, error) {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 	}
+	if u.ID == 0 {
+		return nil, fmt.Errorf("%s: %w", op, UserNotFound)
+	}
 	return u, nil
 }
 
-func (s *Store) CreateUser(u models.RegisterUserPayload) (int, error) {
+func (s *Store) CreateUser(u models.RegisterUserPayload, passHash []byte) (int, error) {
 	const op = "user.store.CreateUser"
 
 	stmt, err := s.db.Preparex(
-		"INSERT INTO users(email, username, password, is_male, age, height, weight, goal, weight_goal) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+		"INSERT INTO users(email, username, password, is_male, age, height, weight, goal, weight_goal) " +
+			"VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
 	)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -73,7 +80,7 @@ func (s *Store) CreateUser(u models.RegisterUserPayload) (int, error) {
 	var id int
 
 	err = stmt.QueryRow(
-		u.Email, u.Username, u.Password, u.IsMale, u.Age, u.Height, u.Weight, u.Goal, u.WeightGoal,
+		u.Email, u.Username, passHash, u.IsMale, u.Age, u.Height, u.Weight, u.Goal, u.WeightGoal,
 	).Scan(&id)
 	if err != nil {
 		if pgErr, ok := err.(*pq.Error); ok && pgErr.Code == "23505" {

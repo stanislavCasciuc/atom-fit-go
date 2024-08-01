@@ -2,35 +2,23 @@ package response
 
 import (
 	"fmt"
+	"github.com/go-chi/render"
+	"net/http"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
 
-type Response struct {
-	Status string `json:"status"`
-	Error  string `json:"error,omitempty"`
+var Internal = func(w http.ResponseWriter, r *http.Request) {
+	JSON(w, r, http.StatusBadRequest, map[string]string{"error": "internal error"})
 }
 
-const (
-	StatusOK    = "OK"
-	StatusError = "Error"
-)
-
-func OK() Response {
-	return Response{
-		Status: StatusOK,
-	}
+func JSON(w http.ResponseWriter, r *http.Request, status int, v any) {
+	render.Status(r, status)
+	render.JSON(w, r, v)
 }
 
-func Error(msg string) Response {
-	return Response{
-		Status: StatusError,
-		Error:  msg,
-	}
-}
-
-func ValidationError(errs validator.ValidationErrors) Response {
+func ValidationError(w http.ResponseWriter, r *http.Request, errs validator.ValidationErrors) {
 	var errMsgs []string
 
 	for _, err := range errs {
@@ -44,8 +32,6 @@ func ValidationError(errs validator.ValidationErrors) Response {
 		}
 	}
 
-	return Response{
-		Status: StatusError,
-		Error:  strings.Join(errMsgs, ", "),
-	}
+	render.Status(r, http.StatusUnprocessableEntity)
+	render.JSON(w, r, strings.Join(errMsgs, ", "))
 }
