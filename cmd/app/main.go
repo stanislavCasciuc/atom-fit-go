@@ -5,6 +5,7 @@ import (
 	"github.com/stanislavCasciuc/atom-fit-go/internal/config"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/database"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/prettyslog"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/sl"
 	"log/slog"
 	"os"
 )
@@ -24,7 +25,8 @@ func main() {
 
 	db, err := database.New(cfg.DbCfg)
 	if err != nil {
-		log.Error("cannot to connect to db", err)
+		log.Error("cannot to connect to db", sl.Err(err), cfg.DbCfg)
+
 	}
 
 	if err := db.Ping(); err != nil {

@@ -7,9 +7,11 @@ import (
 	"github.com/go-playground/validator/v10"
 	resp "github.com/stanislavCasciuc/atom-fit-go/internal/api/response"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/config"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/email"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/jwt"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/sl"
-	"github.com/stanislavCasciuc/atom-fit-go/internal/services/users/models"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/models"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/store/users"
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"log/slog"
@@ -17,12 +19,12 @@ import (
 )
 
 type Handler struct {
-	store UserStore
+	store users.UserStore
 	log   *slog.Logger
 	cfg   config.Config
 }
 
-func NewHandler(store UserStore, log *slog.Logger) *Handler {
+func NewHandler(store users.UserStore, log *slog.Logger) *Handler {
 	return &Handler{store: store, log: log, cfg: config.Envs}
 }
 
@@ -60,13 +62,13 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.store.GetUserByEmail(payload.Email)
 	if err != nil {
-		if errors.Is(UserNotFound, err) {
-			resp.JSON(w, r, http.StatusBadRequest, map[string]string{"error": UserNotFound.Error()})
-			log.Error("user not found")
+		if errors.Is(users.UserNotFound, err) {
+			resp.JSON(w, r, http.StatusBadRequest, map[string]string{"error": users.UserNotFound.Error()})
+			log.Error("users not found")
 			return
 		}
 		resp.Internal(w, r)
-		log.Error("failed to get user", sl.Err(err))
+		log.Error("failed to get users", sl.Err(err))
 	}
 
 	err = bcrypt.CompareHashAndPassword(u.Password, []byte(payload.Password))
@@ -128,16 +130,21 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.store.CreateUser(payload, passHash)
 	if err != nil {
-		if errors.Is(UserAlreadyExist, err) {
-			log.Error("user already exist")
+		if errors.Is(users.UserAlreadyExist, err) {
+			log.Error("users already exist")
 
-			resp.JSON(w, r, http.StatusBadRequest, map[string]string{"error": "user already exist"})
+			resp.JSON(w, r, http.StatusBadRequest, map[string]string{"error": "users already exist"})
 			return
 		}
-		log.Error("fail to save user", sl.Err(err))
+		log.Error("fail to save users", sl.Err(err))
 		resp.Internal(w, r)
 		return
 	}
 
 	resp.JSON(w, r, http.StatusCreated, map[string]int{"user_id": id})
+
+	err = email.SendVerifyUser(payload.Username, payload.Email, "dhfn10378efh23874hnfouh1u43he7f8")
+	if err != nil {
+		log.Error("error to send email", sl.Err(err))
+	}
 }

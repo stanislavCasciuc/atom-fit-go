@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type Config struct {
+	DbCfg  DbConfig
+	JwtCfg JWTConfig
+	Env    string
+	HttpServer
+	Email
+}
+
 var Envs = initConfig()
 
 type DbConfig struct {
@@ -23,17 +31,17 @@ type JWTConfig struct {
 	Exp    time.Duration
 }
 
-type Config struct {
-	DbCfg  DbConfig
-	JwtCfg JWTConfig
-	Env    string
-	HttpServer
-}
-
 type HttpServer struct {
 	Addr       string
 	IdleTimout time.Duration
 	Timeout    time.Duration
+}
+
+type Email struct {
+	Addr     string
+	Host     string
+	Port     int
+	Password string
 }
 
 func initConfig() Config {
@@ -95,6 +103,19 @@ func initConfig() Config {
 			return idleTimeout
 		}(),
 	}
+	email := Email{
+		Host: os.Getenv("EMAIL_HOST"),
+		Port: func() int {
+			str := os.Getenv("EMAIL_PORT")
+			res, err := strconv.Atoi(str)
+			if err != nil {
+				return 587
+			}
+			return res
+		}(),
+		Addr:     os.Getenv("EMAIL"),
+		Password: os.Getenv("EMAIL_PASSWORD"),
+	}
 
 	env := os.Getenv("ENV")
 	return Config{
@@ -102,5 +123,6 @@ func initConfig() Config {
 		JwtCfg:     jwtCfg,
 		Env:        env,
 		HttpServer: httpServer,
+		Email:      email,
 	}
 }

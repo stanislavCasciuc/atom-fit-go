@@ -9,6 +9,7 @@ import (
 	"github.com/stanislavCasciuc/atom-fit-go/internal/config"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/sl"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/services/users"
+	users2 "github.com/stanislavCasciuc/atom-fit-go/internal/store/users"
 	"log/slog"
 	"net/http"
 	"os"
@@ -40,18 +41,18 @@ func (s *Server) Run() error {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	userStore := users.NewStore(s.db)
+	userStore := users2.NewStore(s.db)
 	userHandlers := users.NewHandler(userStore, s.log)
 
 	router.Post("/api/register", userHandlers.HandleRegister)
 	router.Post("/api/login", userHandlers.HandleLogin)
 
-	s.log.Info("Listening on", slog.String("addr", s.cfg.Addr))
+	s.log.Info("Listening on", slog.String("addr", s.cfg.HttpServer.Addr))
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := &http.Server{
-		Addr:         s.cfg.Addr,
+		Addr:         s.cfg.HttpServer.Addr,
 		Handler:      router,
 		ReadTimeout:  s.cfg.Timeout,
 		WriteTimeout: s.cfg.Timeout,

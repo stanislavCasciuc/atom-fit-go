@@ -2,7 +2,7 @@ package jwt
 
 import (
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/stanislavCasciuc/atom-fit-go/internal/services/users/models"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/models"
 	"time"
 )
 
