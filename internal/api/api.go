@@ -24,7 +24,7 @@ type Server struct {
 	cfg config.Config
 }
 
-func NewServer(addr string, db *sqlx.DB, log *slog.Logger) *Server {
+func NewServer(db *sqlx.DB, log *slog.Logger) *Server {
 	return &Server{
 		db:  db,
 		log: log,
@@ -46,6 +46,7 @@ func (s *Server) Run() error {
 
 	router.Post("/api/register", userHandlers.HandleRegister)
 	router.Post("/api/login", userHandlers.HandleLogin)
+	router.Post("/api/activate", userHandlers.ActivateUserHandler)
 
 	s.log.Info("Listening on", slog.String("addr", s.cfg.HttpServer.Addr))
 	done := make(chan os.Signal, 1)

@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     height INTEGER NOT NULL DEFAULT 175,
     weight INTEGER NOT NULL DEFAULT 70,
     goal TEXT NOT NULL DEFAULT 'lose' CHECK (goal IN ('lose', 'maintain', 'gain')),
-    weight_goal INTEGER NOT NULL DEFAULT 65
+    weight_goal INTEGER NOT NULL DEFAULT 65,
+    activation_code TEXT NOT NULL,
 );
 
 CREATE INDEX IF NOT EXISTS idx_email ON users (email);

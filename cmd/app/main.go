@@ -34,8 +34,7 @@ func main() {
 	}
 
 	log.Info("database successfully connected")
-
-	server := api.NewServer(":8080", db, log)
+	server := api.NewServer(db, log)
 	if err := server.Run(); err != nil {
 		log.Error("cannot to run api server ", err)
 	}

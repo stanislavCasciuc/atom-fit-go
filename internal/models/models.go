@@ -3,19 +3,20 @@ package models
 import "time"
 
 type User struct {
-	ID          int       `db:"id"`
-	Email       string    `db:"email"`
-	Username    string    `db:"username"`
-	Password    []byte    `db:"password"`
-	CreatedAt   time.Time `db:"created_at"`
-	IsActive    bool      `db:"is_active"`
-	IsSuperuser bool      `db:"is_superuser"`
-	IsMale      bool      `db:"is_male"`
-	Age         int       `db:"age"`
-	Height      int       `db:"height"`
-	Weight      int       `db:"weight"`
-	Goal        string    `db:"goal"`
-	WeightGoal  int       `db:"weight_goal"`
+	ID             int       `db:"id"`
+	Email          string    `db:"email"`
+	Username       string    `db:"username"`
+	Password       []byte    `db:"password"`
+	CreatedAt      time.Time `db:"created_at"`
+	IsActive       bool      `db:"is_active"`
+	ActivationCode *string   `db:"activation_code"`
+	IsSuperuser    bool      `db:"is_superuser"`
+	IsMale         bool      `db:"is_male"`
+	Age            int       `db:"age"`
+	Height         int       `db:"height"`
+	Weight         int       `db:"weight"`
+	Goal           string    `db:"goal"`
+	WeightGoal     int       `db:"weight_goal"`
 }
 
 type RegisterUserPayload struct {
@@ -33,4 +34,8 @@ type RegisterUserPayload struct {
 type LoginUserPayload struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=3,max=30"`
+}
+
+type ActivationPayload struct {
+	ActivationCode string `json:"activation_code"`
 }

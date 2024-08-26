@@ -5,17 +5,19 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
-	resp "github.com/stanislavCasciuc/atom-fit-go/internal/api/response"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/config"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/email"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/jwt"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/lib/logger/sl"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/models"
+	"github.com/stanislavCasciuc/atom-fit-go/internal/services/auth"
 	"github.com/stanislavCasciuc/atom-fit-go/internal/store/users"
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"log/slog"
 	"net/http"
+
+	resp "github.com/stanislavCasciuc/atom-fit-go/internal/api/response"
 )
 
 type Handler struct {
@@ -128,7 +130,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		resp.Internal(w, r)
 	}
 
-	id, err := h.store.CreateUser(payload, passHash)
+	id, activationCode, err := h.store.CreateUser(payload, passHash)
 	if err != nil {
 		if errors.Is(users.UserAlreadyExist, err) {
 			log.Error("users already exist")
@@ -143,8 +145,55 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	resp.JSON(w, r, http.StatusCreated, map[string]int{"user_id": id})
 
-	err = email.SendVerifyUser(payload.Username, payload.Email, "dhfn10378efh23874hnfouh1u43he7f8")
+	err = email.SendVerifyUser(payload.Username, payload.Email, activationCode)
 	if err != nil {
 		log.Error("error to send email", sl.Err(err))
 	}
+}
+
+func (h *Handler) ActivateUserHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "users.ActivateUserHandler"
+
+	requestId := middleware.GetReqID(r.Context())
+
+	log := h.log.With(
+		slog.String("op", op),
+		slog.String("request_id", requestId),
+	)
+
+	var payload models.ActivationPayload
+
+	err := render.DecodeJSON(r.Body, &payload)
+	if errors.Is(err, io.EOF) {
+		resp.JSON(w, r, http.StatusUnprocessableEntity, map[string]string{"error": "empty payload"})
+		log.Error("request is empty")
+		return
+	}
+
+	user, err := auth.GetAuthenticatedUser(r, h.store)
+	if err != nil {
+		if errors.Is(auth.ErrTokenNotFound, err) || errors.Is(auth.ErrUserNotFound, err) {
+			log.Warn(err.Error())
+			resp.JSON(w, r, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		log.Error("error to get user", sl.Err(err))
+	}
+	log.With(slog.Int("user_id", user.ID))
+	if *user.ActivationCode != payload.ActivationCode {
+		log.Warn("wrong activation code")
+		resp.JSON(w, r, http.StatusBadRequest, "wrong activation code")
+		return
+	}
+
+	user.IsActive = true
+
+	if err := h.store.UpdateUser(user.ID, user); err != nil {
+		log.Error("cannot update users data", sl.Err(err))
+		resp.Internal(w, r)
+		return
+	}
+
+	log.Info("user successfully activated")
+	resp.JSON(w, r, http.StatusOK, map[string]string{"success": "ok"})
 }
